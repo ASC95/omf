@@ -21,13 +21,12 @@ if platform.system() == "Linux" and platform.linux_distribution()[0] in ["Ubuntu
 	os.system("sudo alien -i gridlabd-4.0.0-1.el6.x86_64.rpm")
 	os.system("sudo apt-get install -f")
 	os.system("cd omf")
-	os.system("pip install --upgrade pip")
-	pipInstallInOrder("pip")
-	os.system("python setup.py develop")
+	os.system("pip3 install --upgrade pip")
+	pipInstallInOrder("pip3")
+	os.system("python3 setup.py develop")
 # TODO: Double check CentOS installation to support Python 3.7 or up
 elif platform.system() == "Linux" and platform.linux_distribution()[0]=="CentOS Linux":
-	# CentOS Docker image appears to come with en_US.UTF-8 locale built-in, but we might need to install that locale in the future. That currently is
-	# not done here.
+	# CentOS Docker image appears to come with en_US.UTF-8 locale built-in, but we might need to install that locale in the future. That currently is not done here.
 	os.system("yum -y update") # Make sure yum is updated to prevent any weird package installation issues
 	os.system("sudo yum -y install wget git graphviz gcc xerces-c python-devel tkinter octave 'graphviz-devel.x86_64'")
 	os.system("yum --enablerepo=extras install epel-release")
@@ -70,18 +69,18 @@ elif platform.system()=='Windows':
 	#os.system(Splat-1.3.0/Splat-1-3-1-SD-mx64.exe)
 	# Install pygraphviz.
 	if platform.architecture()[0] == '32bit':
-		os.system("C:\\Python27\\python.exe -m pip install omf\\static\\pygraphviz-1.3.1-cp36-none-win32.whl")
+		os.system("python3.exe -m pip install omf\\static\\pygraphviz-1.3.1-cp36-none-win32.whl")
 	elif platform.architecture()[0] == '64bit':
-		os.system("C:\\Python27\\python.exe -m pip install omf\\static\\pygraphviz-1.3.1-cp36-none-win_amd64.whl")
+		os.system("python3.exe -m pip install omf\\static\\pygraphviz-1.3.1-cp36-none-win_amd64.whl")
 	# Finish up installation with pip.
 	os.system("cd omf")
 	# HACK: more refreshes of the environment.
 	os.system("timeout 5")
 	os.system("refreshenv")
-	os.system("python3.exe -m pip install scipy")
-	os.system("python3.exe -m pip install setuptools>=33.1.1")
-	pipInstallInOrder("python3.exe -m pip")
-	os.system("python3.exe -m setup.py develop")
+	os.system("python3 -m pip install scipy")
+	os.system("python3 -m pip install setuptools>=33.1.1")
+	pipInstallInOrder("python3 -m pip")
+	os.system("python3 -m setup.py develop")
 elif platform.system()=="Darwin": # MacOS
 	# Might need to install en_US.UTF-8 locale, like for Ubuntu? That currently is not done in this script. macOS might already come with this locale anyway.
 	# Install homebrew
@@ -100,6 +99,7 @@ elif platform.system()=="Darwin": # MacOS
 	#os.system("sudo exec splat-1.4.2/configure")
 	os.system("cd omf")
 	os.system('pip3 install --install-option="--include-path=/usr/local/include/" --install-option="--library-path=/usr/local/lib/" pygraphviz')
+	os.system('pip3 install "ecos >= 2.0.7rc2"')
 	pipInstallInOrder("pip3")
 	os.system("python3 setup.py develop")
 else:

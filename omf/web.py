@@ -19,10 +19,8 @@ except:
 	fcntl.flock = flock
 	(fcntl.LOCK_EX, fcntl.LOCK_SH, fcntl.LOCK_UN, fcntl.LOCK_NB) = (0, 0, 0, 0)
 import omf
-from omf import models, feeder, network, milToGridlab, cymeToGridlab, weather, anonymization
-import omf.calibrate
-import omf.omfStats
-import omf.loadModelingAmi
+from omf import (models, feeder, network, milToGridlab, cymeToGridlab, weather, anonymization, distNetViz, calibrate, omfStats, loadModeling,
+	loadModelingAmi, geo, comms)
 
 app = Flask("web")
 Compress(app)
@@ -331,7 +329,7 @@ def regenOmfStats():
 	'''Regenarate stats images.'''
 	if User.cu() != "admin":
 		return redirect("/")
-	genImagesProc = Process(target=omf.omfStats.genAllImages, args=[])
+	genImagesProc = Process(target=omfStats.genAllImages, args=[])
 	genImagesProc.start()
 	return redirect("/omfStats")
 
@@ -879,8 +877,8 @@ def gridlabImportBackground(owner, modelName):
 			glmString = glmFile.read()
 		newFeeder = dict(**feeder.newFeederWireframe)
 		newFeeder["tree"] = feeder.parse(glmString, False)
-		if not omf.distNetViz.contains_valid_coordinates(newFeeder["tree"]):
-			omf.distNetViz.insert_coordinates(newFeeder["tree"])
+		if not distNetViz.contains_valid_coordinates(newFeeder["tree"]):
+			distNetViz.insert_coordinates(newFeeder["tree"])
 		with locked_open(os.path.join(_omfDir, 'static', 'schedules.glm')) as schedFile:
 			newFeeder["attachments"] = {"schedules.glm":schedFile.read()}
 		with locked_open(feeder_path, 'w') as f: # Use 'w' mode because we're creating a new .omd file according to feederName
@@ -948,7 +946,7 @@ def backgroundScadaLoadshape(owner, modelName, feederName, loadName):
 		solver = 'FBS'
 		calibrateError = (0.05, 5)
 		trim = 5
-		omf.calibrate.omfCalibrate(workDir, feederPath, scadaPath, simStartDate, simLength, simLengthUnits, solver, calibrateError, trim)
+		calibrate.omfCalibrate(workDir, feederPath, scadaPath, simStartDate, simLength, simLengthUnits, solver, calibrateError, trim)
 		# move calibrated file to model folder, old omd files are backedup
 		if feederPath.endswith('.omd'):
 			os.rename(feederPath, feederPath + '.backup')
@@ -986,7 +984,7 @@ def backgroundLoadModelingAmi(owner, modelName, feederName, loadName):
 		request.files['amiFile'].save(ami_filepath)
 		with locked_open(pid_filepath, 'w') as pid_file:
 			pid_file.write(str(os.getpid()))
-		omf.loadModelingAmi.writeNewGlmAndPlayers(omdPath, ami_filepath, outDir)
+		loadModelingAmi.writeNewGlmAndPlayers(omdPath, ami_filepath, outDir)
 		os.remove(pid_filepath)
 	except Exception:
 		with locked_open(error_filepath, 'w') as errorFile:
@@ -1150,7 +1148,7 @@ def saveFeeder(owner, modelName, feederName, feederNum):
 		if os.path.isfile(error_file):
 			try:
 				os.remove(error_file)
-			except OSError as e:
+			except FileNotFoundError as e:
 				if e.errno ==2:
 					# Tried to remove a nonexistant file
 					pass
@@ -1163,18 +1161,15 @@ def saveFeeder(owner, modelName, feederName, feederNum):
 					pid = f.read()
 				os.remove(pid_filepath)
 				os.kill(int(pid), signal.SIGTERM)
-			except IOError as e:
+			except FileNotFoundError as e:
 				if e.errno == 2:
 					# Tried to open a nonexistent file. Presumably, some other process opened the used the pid file and deleted it before this process
 					# could use it
 					pass
 				else:
 					raise
-			except OSError as e:
-				if e.errno == 2:
-					# Tried to remove a nonexistent file
-					pass
-				elif e.errno == 3:
+			except ProcessLookupError as e:
+				if e.errno == 3:
 					# Tried to kill a process with a pid that doesn't map to an existing process.
 					pass
 				else:
@@ -1438,7 +1433,7 @@ def backgroundAnonymize(modelDir, omdPath, owner, modelName):
 		elif locOption == 'randomize':
 			anonymization.distRandomizeLocations(inFeeder)
 		elif locOption == 'forceLayout':
-			omf.distNetViz.insert_coordinates(inFeeder["tree"])
+			distNetViz.insert_coordinates(inFeeder["tree"])
 		# Electrical Properties
 		if request.form.get('modifyLengthSize'):
 			anonymization.distModifyTriplexLengths(inFeeder)
@@ -1492,10 +1487,10 @@ def background_zillow_houses(model_dir):
 		triplex_objects = json.loads(request.form.get("triplexObjects"))
 		zillow_houses = {}
 		for obj in triplex_objects:
-			house = omf.loadModeling.get_zillow_configured_new_house(obj['latitude'], obj['longitude'])
+			house = loadModeling.get_zillow_configured_new_house(obj['latitude'], obj['longitude'])
 			if house is None:
 				# If a request for some house fails, get a random house
-				house = omf.loadModeling.get_random_new_house()
+				house = loadModeling.get_random_new_house()
 			zillow_houses[obj['key']] = house
 			# The APIs we use require us to limit our requests to a maximum of 1 per second. Exceeding that throughput will get us IP banned faster.
 			time.sleep(1)
@@ -1604,7 +1599,7 @@ def displayOmdMap(owner, modelName, feederNum):
 		feederName = feederDict.get('feederName' + str(feederNum))
 		modelDir = os.path.join(_omfDir, "data","Model", owner, modelName)
 		feederFile = os.path.join(modelDir, feederName + ".omd")
-		geojson = omf.geo.omdGeoJson(feederFile)
+		geojson = geo.omdGeoJson(feederFile)
 		return render_template('geoJsonMap.html', geojson=geojson)
 
 
@@ -1631,16 +1626,16 @@ def commsMap(owner, modelName, feederNum):
 def redisplayGrid():
 	'''Redisplay comms grid on edits'''
 	geoDict = request.get_json()
-	nxG = omf.comms.omcToNxg(geoDict)
-	omf.comms.clearFiber(nxG)
-	omf.comms.clearRFEdges(nxG)
-	omf.comms.setFiber(nxG)
-	omf.comms.setRF(nxG)
-	omf.comms.setFiberCapacity(nxG)
-	omf.comms.setRFEdgeCapacity(nxG)
-	omf.comms.calcBandwidth(nxG)
+	nxG = comms.omcToNxg(geoDict)
+	comms.clearFiber(nxG)
+	comms.clearRFEdges(nxG)
+	comms.setFiber(nxG)
+	comms.setRF(nxG)
+	comms.setFiberCapacity(nxG)
+	comms.setRFEdgeCapacity(nxG)
+	comms.calcBandwidth(nxG)
 	#need to runs comms updates here
-	geoJson = omf.comms.graphGeoJson(nxG)
+	geoJson = comms.graphGeoJson(nxG)
 	return jsonify(newgeojson=geoJson)
 
 
@@ -1651,7 +1646,7 @@ def saveCommsMap(owner, modelName, feederName, feederNum):
 	try:
 		geoDict = request.get_json()
 		model_dir = os.path.join(_omfDir, 'data', 'Model', owner, modelName)
-		omf.comms.saveOmc(geoDict, model_dir, feederName)
+		comms.saveOmc(geoDict, model_dir, feederName)
 		return jsonify(savemessage='Communications network saved')
 	except:
 		return jsonify(savemessage='Error saving communications network')
@@ -1707,7 +1702,7 @@ def root():
 	modelTips = {}
 	for name in models.__all__:
 		try:
-			modelTips[name] = getattr(omf.models, name).tooltip
+			modelTips[name] = getattr(models, name).tooltip
 		except:
 			pass
 	# Generate list of model types.
