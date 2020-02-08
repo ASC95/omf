@@ -14,8 +14,8 @@ RUN python install.py
 RUN pip install -r requirements.txt
 RUN pip install tensorflow fbprophet
 WORKDIR /home/omf/omf
-#ENV LC_ALL C.UTF-8
-#ENV LANG C.UTF-8
-#ENV LANGUAGE C.UTF-8
+ENV LC_ALL C.UTF-8
+ENV LANG C.UTF-8
+ENV LANGUAGE C.UTF-8
 ENTRYPOINT ["python"]
 CMD ["-m", "web"]
