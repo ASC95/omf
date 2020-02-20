@@ -1,7 +1,9 @@
 name: Whee
 
-on: [push]
-
+on:
+  push:
+    branches:
+      - new-testing # Only run this workflow on a push to the new-testing branch
 jobs:
   first:
     runs-on: ubuntu-18.04
