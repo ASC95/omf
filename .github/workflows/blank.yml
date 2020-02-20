@@ -7,7 +7,9 @@ jobs:
     runs-on: ubuntu-18.04
     name: this is my first job
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v2 
+        with: # Checkout new-testing branch instead of master
+          ref: new-testing
       - name: Install dependencies
         run: | 
           sudo apt-get -y update
