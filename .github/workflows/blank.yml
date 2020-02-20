@@ -1,0 +1,19 @@
+name: Whee
+
+on: [push]
+
+jobs:
+  first:
+    runs-on: ubuntu-18.04
+    name: this is my first job
+    steps:
+      - name: Install dependencies
+        run: | 
+          apt-get -y update
+          apt-get -y upgrade
+          apt-get -y install python3-pip
+          python3 install.py
+          pip install -r requirements.txt
+      - name: Run tests
+        run: |
+          python3 omf/runAllTests.py
